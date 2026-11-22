@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import 'dotenv/config';
 
 /**
  * Read environment variables from file.
@@ -26,7 +27,7 @@ export default defineConfig({
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     baseURL: 'https://practicesoftwaretesting.com/',
-
+    testIdAttribute: 'data-test',
     /* Collect trace when retrying the failed test. */
     trace: 'on-first-retry',
   },
