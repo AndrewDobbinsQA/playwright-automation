@@ -27,6 +27,11 @@ test('login fails when required fields are empty', async ({ page }) => {
 });
 
 test('login succeeds with valid credentials', async ({ page }) => {
+  test.skip(
+    !!process.env.CI,
+    'Cloudflare security verification blocks authentication in CI'
+  );
+
   const loginPage = new LoginPage(page);
 
   const email = process.env.TEST_USER_EMAIL;
