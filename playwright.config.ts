@@ -26,7 +26,7 @@ export default defineConfig({
   reporter: 'html',
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
-    baseURL: 'https://practicesoftwaretesting.com/',
+    baseURL: process.env.BASE_URL || 'http://localhost:4200',
     testIdAttribute: 'data-test',
     /* Collect trace when retrying the failed test. */
     trace: 'on-first-retry',
