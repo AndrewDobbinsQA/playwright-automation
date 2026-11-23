@@ -71,6 +71,17 @@ jobs:
             sleep 2
           done
           echo "Toolshop did not become ready"
+          echo "Frontend HTTP response:"
+          curl -sS -o /dev/null -w "HTTP %{http_code}\n" http://localhost:4200/ || true
+
+          echo "API HTTP response:"
+          curl -sS -o /dev/null -w "HTTP %{http_code}\n" http://localhost:8091/products || true
+
+          echo "Nginx container logs:"
+          docker compose -f toolshop/docker-compose.yml -f toolshop/docker-compose.override.yml logs --tail=50 web
+
+          echo "Angular container logs:"
+          docker compose -f toolshop/docker-compose.yml -f toolshop/docker-compose.override.yml logs --tail=50 angular-ui
           docker compose -f toolshop/docker-compose.yml -f toolshop/docker-compose.override.yml ps
           exit 1
 
