@@ -15,6 +15,65 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Checkout Toolshop
+        uses: actions/checkout@v4
+        with:
+          repository: testsmith-io/practice-software-testing
+          ref: ae7caecb811dd8952c09d997e69be7cb946ecd44
+          path: toolshop
+
+      - name: Configure Toolshop environment
+        run: echo "SPRINT=sprint5" > toolshop/.env
+
+      - name: Start Toolshop database and PHP API
+        working-directory: toolshop
+        run: |
+          docker compose up -d --build mariadb laravel-api
+
+      - name: Install Toolshop PHP dependencies
+        working-directory: toolshop
+        run: docker compose run --rm composer
+
+      - name: Wait for Toolshop database
+        working-directory: toolshop
+        run: |
+          for attempt in {1..30}; do
+            if docker compose exec -T mariadb mariadb-admin ping --silent; then
+              echo "MariaDB is responding"
+              exit 0
+            fi
+            echo "Waiting for MariaDB..."
+            sleep 2
+          done
+          echo "MariaDB did not become ready"
+          exit 1
+
+      - name: Prepare Toolshop database
+        working-directory: toolshop
+        run: |
+          docker compose exec -T laravel-api php artisan migrate --force
+          docker compose exec -T laravel-api php artisan db:seed --force
+
+      - name: Start Toolshop frontend and web server
+        working-directory: toolshop
+        run: |
+          docker compose up -d --build phpmyadmin web angular-ui
+
+      - name: Wait for Toolshop application
+        run: |
+          for attempt in {1..60}; do
+            if curl --fail --silent --output /dev/null http://localhost:4200/ && \
+               curl --fail --silent --output /dev/null http://localhost:8091/products; then
+              echo "Toolshop frontend and API are ready"
+              exit 0
+            fi
+            echo "Waiting for Toolshop application... ($attempt/60)"
+            sleep 2
+          done
+          echo "Toolshop did not become ready"
+          docker compose -f toolshop/docker-compose.yml -f toolshop/docker-compose.override.yml ps
+          exit 1
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
