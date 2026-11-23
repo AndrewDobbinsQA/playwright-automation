@@ -34,6 +34,15 @@ jobs:
         working-directory: toolshop
         run: docker compose run --rm composer
 
+      - name: Fix Laravel directory permissions
+        working-directory: toolshop
+        run: |
+          docker compose exec -T -u root laravel-api sh -c \
+            'chown -R 1000:82 storage bootstrap/cache'
+
+          docker compose exec -T laravel-api sh -c \
+            'test -w storage/logs && test -w storage/framework/views && test -w bootstrap/cache && echo "Laravel directories are writable"'
+
       - name: Wait for Toolshop database
         working-directory: toolshop
         run: |
