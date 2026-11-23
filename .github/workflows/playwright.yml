@@ -82,6 +82,12 @@ jobs:
 
           echo "Angular container logs:"
           docker compose -f toolshop/docker-compose.yml -f toolshop/docker-compose.override.yml logs --tail=50 angular-ui
+
+          echo "Laravel container logs:"
+          docker compose -f toolshop/docker-compose.yml -f toolshop/docker-compose.override.yml logs --tail=50 laravel-api
+
+          echo "Laravel application logs:"
+          docker compose -f toolshop/docker-compose.yml -f toolshop/docker-compose.override.yml exec -T laravel-api sh -c 'for file in storage/logs/*.log; do if [ -f "$file" ]; then echo "Log: $file"; tail -n 80 "$file"; fi; done'
           docker compose -f toolshop/docker-compose.yml -f toolshop/docker-compose.override.yml ps
           exit 1
 
