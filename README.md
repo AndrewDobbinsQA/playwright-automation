@@ -61,6 +61,10 @@ The framework uses the Page Object Model design pattern to separate page interac
 
 Page objects encapsulate application locators and reusable interactions, allowing test specifications to focus on test intent, expected behaviour and assertions.
 
+Reusable assertion helpers encapsulate common validation logic, reducing duplication across test specifications whilst keeping assertions separate from page interactions.
+
+Parameterised test scenarios separate test data from execution logic, allowing multiple inputs and expected outcomes to be validated using a consistent test implementation.
+
 ### Repository Structure
 
 ```text
@@ -68,13 +72,17 @@ playwright-automation/
 ├── .github/
 │   └── workflows/
 │       └── playwright.yml
+├── helpers/
+│   └── assertions.ts
 ├── pages/
-│   └── LoginPage.ts
+│   ├── LoginPage.ts
+│   └── ProductsPage.ts
 ├── tests/
 │   ├── api/
 │   └── ui/
 │       ├── auth.spec.ts
-│       └── homepage.spec.ts
+│       ├── homepage.spec.ts
+│       └── products.spec.ts
 ├── .env.example
 ├── .gitignore
 ├── package.json
@@ -93,6 +101,9 @@ The API test directory is reserved for future development and does not currently
 - Preference for semantic locators and dedicated test identifiers.
 - Condition-based assertions using Playwright's auto-waiting capabilities.
 - Explicit validation of positive and negative application behaviour.
+- Parameterised testing to reduce duplication and improve coverage extensibility.
+- Reusable assertion helpers for common validation requirements.
+- Order-independent collection validation where result ordering is not a functional requirement.
 - Environment-specific configuration separated from test logic.
 - Strict TypeScript type checking.
 - Incremental abstraction driven by genuine reuse requirements.
@@ -444,14 +455,36 @@ The GitHub Actions workflow executes the complete test suite across all three su
 | Login with empty required fields | Required field validation messages are displayed. |
 | Login with valid credentials | The user is redirected to the account page and the expected heading is displayed. |
 
+### Product Search
+
+| Scenario | Validation |
+| --- | --- |
+| Search for products using a matching search term (`pliers`) | Four expected products are returned and the search confirmation and result count are correct. |
+| Search for products using a partial search term (`ham`) | Seven expected products are returned, validating partial search functionality. |
+| Search for a single matching product (`sledgehammer`) | The expected product is returned and the singular result count message is displayed. |
+| Search for a nonexistent product | Zero products are returned and the expected no-results message is displayed. |
+
+All product search scenarios also validate the search confirmation, result count and clearing of the search input following submission.
+
+### Category Filtering
+
+| Scenario | Validation |
+| --- | --- |
+| Filter products by the Pliers category | The category checkbox is selected and the five expected products are returned. |
+| Filter products by the Hammer category | The category checkbox is selected and the seven expected products are returned. |
+
+Successful search and category filtering scenarios validate both the number of returned products and the exact collection of product names, independently of their displayed order.
+
+Expected product data is based on the seeded dataset provided by the pinned Toolshop application revision.
+
 ### Coverage Summary
 
 | Metric | Current Coverage |
 | --- | ---: |
-| UI test scenarios | 4 |
+| UI test scenarios | 10 |
 | API test scenarios | 0 |
 | Browser engines | 3 |
-| Total configured test executions | 12 |
+| Total configured test executions | 30 |
 
 ## Continuous Integration
 
@@ -591,6 +624,10 @@ The framework is under active development.
 - [x] Environment variable configuration
 - [x] Homepage smoke test
 - [x] Positive and negative authentication tests
+- [x] Product search and filtering tests
+- [x] Parameterised UI test scenarios
+- [x] Reusable assertion helpers
+- [x] Order-independent product collection validation
 - [x] Cross-browser test execution
 - [x] Docker-based CI test environment
 - [x] GitHub Actions integration
@@ -600,12 +637,12 @@ The framework is under active development.
 
 ### Planned
 
-- [ ] Product search and filtering tests
-- [ ] Shopping cart functionality tests
-- [ ] End-to-end checkout scenarios
 - [ ] Product API test coverage
 - [ ] Authentication API test coverage
 - [ ] Combined UI and API test scenarios
+- [ ] Database validation using MariaDB
+- [ ] Shopping cart functionality tests
+- [ ] End-to-end checkout scenarios
 - [ ] Reusable fixtures and test data management
 - [ ] Framework refinement and reusable components
 - [ ] Enhanced reporting and failure diagnostics
