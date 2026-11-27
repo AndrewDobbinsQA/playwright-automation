@@ -10,7 +10,7 @@
 
 ## Overview
 
-An independently developed test automation framework using Playwright and TypeScript, targeting the Practice Software Testing Toolshop application.
+An independently developed test automation framework using Playwright and TypeScript, targeting the Practice Software Testing Toolshop application through browser-based UI and REST API testing.
 
 The project builds upon commercial test automation experience and demonstrates a practical approach to designing, developing and maintaining reliable, scalable and maintainable automated test suites.
 
@@ -65,6 +65,17 @@ Reusable assertion helpers encapsulate common validation logic, reducing duplica
 
 Parameterised test scenarios separate test data from execution logic, allowing multiple inputs and expected outcomes to be validated using a consistent test implementation.
 
+### REST API Testing Architecture
+
+The API layer uses Playwright's native `APIRequestContext` through a dedicated, browser-independent `api` project. API requests use a separate base URL and a centrally configured `Accept: application/json` header.
+
+- `ProductsApi` encapsulates catalogue, detail, related product and search requests, including reusable pagination retrieval.
+- TypeScript interfaces model endpoint-specific responses, shared product properties, generic pagination and nullable fields.
+- Reusable assertions validate HTTP status codes, JSON content types, pagination metadata and product structures at runtime. TypeScript interfaces alone do not validate runtime responses.
+- Product, category and brand identifiers are resolved dynamically from seeded data rather than hardcoded.
+- Cross-endpoint comparisons validate product relationships, result completeness and uniqueness. Search validation includes both standard and rental catalogues.
+- Focused spec files and parameterised scenarios keep functional coverage maintainable.
+
 ### Repository Structure
 
 ```text
@@ -72,6 +83,14 @@ playwright-automation/
 ├── .github/
 │   └── workflows/
 │       └── playwright.yml
+├── api/
+│   ├── assertions/
+│   │   ├── api.assertions.ts
+│   │   └── product.assertions.ts
+│   ├── clients/
+│   │   └── ProductsApi.ts
+│   └── types/
+│       └── product.types.ts
 ├── helpers/
 │   └── assertions.ts
 ├── pages/
@@ -79,6 +98,16 @@ playwright-automation/
 │   └── ProductsPage.ts
 ├── tests/
 │   ├── api/
+│   │   └── products/
+│   │       ├── catalogue.spec.ts
+│   │       ├── filtering.spec.ts
+│   │       ├── price-filtering.spec.ts
+│   │       ├── rental-filtering.spec.ts
+│   │       ├── combined-filtering.spec.ts
+│   │       ├── sorting.spec.ts
+│   │       ├── details.spec.ts
+│   │       ├── related.spec.ts
+│   │       └── search.spec.ts
 │   └── ui/
 │       ├── auth.spec.ts
 │       ├── homepage.spec.ts
@@ -92,7 +121,7 @@ playwright-automation/
 └── README.md
 ```
 
-The API test directory is reserved for future development and does not currently contain implemented tests.
+UI and API specifications are discovered independently by their respective Playwright projects.
 
 ### Design Principles
 
@@ -106,6 +135,8 @@ The API test directory is reserved for future development and does not currently
 - Order-independent collection validation where result ordering is not a functional requirement.
 - Environment-specific configuration separated from test logic.
 - Strict TypeScript type checking.
+- Runtime response validation and cross-endpoint data consistency checks.
+- Explicit defect traceability for known expected failures.
 - Incremental abstraction driven by genuine reuse requirements.
 
 ## Getting Started
@@ -159,6 +190,7 @@ Configure the following environment variables:
 | Variable | Description |
 | --- | --- |
 | `BASE_URL` | Base URL of the Toolshop frontend. Optional; defaults to `http://localhost:4200`. |
+| `API_BASE_URL` | Base URL of the Toolshop REST API. Optional; defaults to `http://localhost:8091`. |
 | `TEST_USER_EMAIL` | Email address of a valid test user. |
 | `TEST_USER_PASSWORD` | Password of the test user. |
 
@@ -166,6 +198,7 @@ Example configuration:
 
 ```dotenv
 BASE_URL=http://localhost:4200
+API_BASE_URL=http://localhost:8091
 TEST_USER_EMAIL=your-test-email@example.com
 TEST_USER_PASSWORD=your-test-password
 ```
@@ -339,21 +372,44 @@ Ensure the automation framework's environment variables are configured before ex
 
 The initial provisioning process does not need to be repeated before every test execution.
 
-To stop the application containers:
+#### Daily Shutdown
+
+From the Toolshop repository, stop the existing application containers:
 
 ```bash
+cd ~/Projects/practice-software-testing
 docker compose stop
 ```
 
-To restart the existing containers:
+Adjust the path to match your local checkout. Once the containers have stopped, Docker Desktop can be quit if it is no longer required.
+
+#### Daily Startup
+
+On macOS, start Docker Desktop:
 
 ```bash
-docker compose start
+open -a Docker
 ```
 
-Run these commands from the Toolshop repository.
+Wait for the Docker engine to become available. Verify readiness using:
 
-Stopping the containers preserves the existing application environment and database data. Database migrations and seeding do not need to be repeated when restarting an existing environment.
+```bash
+docker info
+```
+
+On other platforms, start the Docker engine using the appropriate platform-specific procedure.
+
+Restart the existing application containers:
+
+```bash
+cd ~/Projects/practice-software-testing
+docker compose start
+docker compose ps
+```
+
+Repeat the frontend and API readiness checks described above before running tests. Return to the automation repository when the application is ready.
+
+`docker compose stop` preserves the existing containers and database data. Migrations and seeding do not need to be repeated during normal daily restarts. `docker compose down` removes containers and networks, while `docker compose down -v` can also remove database volumes and their data. Avoid these commands for routine shutdown when preserving the existing environment is the objective.
 
 ### Platform Compatibility
 
@@ -377,6 +433,22 @@ All commands in this section should be executed from the automation repository.
 npx playwright test
 ```
 
+The complete suite includes all three UI browser projects and the dedicated API project.
+
+### Execute UI Tests Only
+
+```bash
+npx playwright test --project=chromium --project=firefox --project=webkit
+```
+
+### Execute API Tests Only
+
+```bash
+npx playwright test --project=api
+```
+
+The current read-only product API tests do not require browser installation or test user credentials. The target API must be running.
+
 ### Execute Tests Against a Specific Browser
 
 ```bash
@@ -397,10 +469,16 @@ npx playwright test --project=chromium --project=webkit
 npx playwright test tests/ui/auth.spec.ts
 ```
 
+To execute a specific API spec file:
+
+```bash
+npx playwright test --project=api tests/api/products/search.spec.ts
+```
+
 ### Execute Tests in Headed Mode
 
 ```bash
-npx playwright test --headed
+npx playwright test --project=chromium --headed
 ```
 
 ### Launch Playwright UI Mode
@@ -437,7 +515,7 @@ This provides coverage across the major browser engines without requiring separa
 
 Local browser compatibility may vary depending on the host operating system and Playwright version. Individual browser projects can be executed independently when required.
 
-The GitHub Actions workflow executes the complete test suite across all three supported browser engines.
+The GitHub Actions workflow is configured to execute all three UI browser projects and the browser-independent API project. API scenarios are executed once per suite rather than once per browser.
 
 ## Current Test Coverage
 
@@ -477,14 +555,36 @@ Successful search and category filtering scenarios validate both the number of r
 
 Expected product data is based on the seeded dataset provided by the pinned Toolshop application revision.
 
+### REST API – Product Catalogue
+
+| Endpoint / functional area | Spec file | Scenarios | Validation |
+| --- | --- | ---: | --- |
+| GET /products – Catalogue | `catalogue.spec.ts` | 7 | Response structure, pagination boundaries and unique product IDs across pages |
+| GET /products – Category and brand filtering | `filtering.spec.ts` | 6 | Expected products, filter relationships and nonexistent identifiers |
+| GET /products – Price filtering | `price-filtering.spec.ts` | 6 | Inclusive boundaries, complete paginated results and invalid ranges |
+| GET /products – Rental filtering | `rental-filtering.spec.ts` | 6 | Rental flags, expected products and category interactions |
+| GET /products – Combined filtering | `combined-filtering.spec.ts` | 3 | Category, brand and price filter intersections, including empty results |
+| GET /products – Sorting | `sorting.spec.ts` | 4 | Ascending and descending name and price ordering across the complete catalogue |
+| GET /products/{productId} | `details.spec.ts` | 3 | Catalogue consistency, specifications and HTTP 404 for invalid identifiers |
+| GET /products/{productId}/related | `related.spec.ts` | 4 | Category relationships, source exclusion, uniqueness and invalid identifiers (two expected failures) |
+| GET /products/search | `search.spec.ts` | 14 | Exact and partial matches, case, whitespace, empty results, pagination and completeness across standard and rental catalogues |
+| **Total** | | **53** | |
+
+The API suite validates status codes, JSON content types, response structures and expected seeded product data as appropriate to each scenario.
+
 ### Coverage Summary
 
 | Metric | Current Coverage |
 | --- | ---: |
 | UI test scenarios | 10 |
-| API test scenarios | 0 |
+| API test scenarios | 53 |
+| Total distinct test scenarios | 63 |
 | Browser engines | 3 |
-| Total configured test executions | 30 |
+| UI test executions | 30 |
+| API test executions | 53 |
+| Total configured test executions | 83 |
+
+The configured execution count excludes retries. The API suite includes two expected failures associated with known defect [#12](https://github.com/AndrewDobbinsQA/playwright-automation/issues/12). The latest local API regression completed with 51 conventional passes and two expected failures, with no unexpected failures.
 
 ## Continuous Integration
 
@@ -509,7 +609,7 @@ The complete workflow configuration is available in [playwright.yml](.github/wor
 11. Configure Node.js and install automation dependencies.
 12. Perform TypeScript type checking.
 13. Install Playwright browsers and system dependencies.
-14. Execute the cross-browser test suite.
+14. Execute the UI and API test projects.
 15. Upload the Playwright HTML report.
 
 ### CI Configuration
@@ -519,6 +619,7 @@ The complete workflow configuration is available in [playwright.yml](.github/wor
 | Runner | Ubuntu |
 | Node.js version | 24 |
 | Browser engines | Chromium, Firefox and WebKit |
+| API project | `api` (browser-independent) |
 | Test workers | 1 |
 | Failed test retries | 2 |
 | Job timeout | 60 minutes |
@@ -585,6 +686,16 @@ Traces support failure investigation through information including:
 
 Retries are enabled in CI. Local execution uses zero retries by default.
 
+### Expected Failures and Defect Traceability
+
+The related products endpoint currently returns HTTP 500 instead of the documented HTTP 404 for nonexistent and malformed product identifiers ([#12](https://github.com/AndrewDobbinsQA/playwright-automation/issues/12)).
+
+The two negative regression scenarios retain assertions for the documented HTTP 404 response and error body. Before applying a conditional `test.fail()` annotation, they verify the JSON content type and, for HTTP 500, the known error message. The annotation links directly to the defect in the HTML report.
+
+This approach keeps the known failure visible without blocking unrelated regression coverage. Unexpected statuses or failures before the annotation are not treated as the known defect. If the endpoint starts returning the correct response, the conditional annotation is not applied and the test can pass normally; the annotation should then be reviewed and removed as part of defect resolution.
+
+Expected failures are included in Playwright's successful outcome count and should not be interpreted as conventional passes.
+
 ### Application Diagnostics
 
 If the Toolshop application fails its readiness checks during CI provisioning, the workflow collects diagnostic information including:
@@ -597,6 +708,21 @@ If the Toolshop application fails its readiness checks during CI provisioning, t
 - Docker Compose service status
 
 These diagnostics help distinguish application provisioning failures from automated test failures and reduce the effort required to investigate unsuccessful workflow executions.
+
+## Exploratory Testing and Defect Management
+
+Exploratory testing using Swagger UI, browser interactions and command-line HTTP requests informed the automated coverage. Findings are tracked separately from framework implementation, with documented evidence, impact, acceptance criteria and severity for bugs.
+
+| Issue | Finding | Classification |
+| --- | --- | --- |
+| [#12](https://github.com/AndrewDobbinsQA/playwright-automation/issues/12) | Related products returns HTTP 500 for invalid identifiers | Bug – Medium |
+| [#13](https://github.com/AndrewDobbinsQA/playwright-automation/issues/13) | Invalid sorting and price filter fields return HTTP 500 | Bug – Medium |
+| [#14](https://github.com/AndrewDobbinsQA/playwright-automation/issues/14) | Missing required search parameter accepted | Bug – Low |
+| [#15](https://github.com/AndrewDobbinsQA/playwright-automation/issues/15) | Hammer search excludes Sledgehammer | Bug – Medium |
+| [#16](https://github.com/AndrewDobbinsQA/playwright-automation/issues/16) | Rental filtering documentation clarification | Task |
+| [#17](https://github.com/AndrewDobbinsQA/playwright-automation/issues/17) | Response schema and example alignment | Task |
+
+Regression coverage for #12 asserts the documented contract. Further regression scenarios for other findings are deferred until intended behaviour is established, avoiding assertions that encode unsupported assumptions. Documentation tasks distinguish observed response differences from confirmed formal schema violations.
 
 ## Development Workflow
 
@@ -634,11 +760,16 @@ The framework is under active development.
 - [x] TypeScript validation
 - [x] HTML reporting and trace configuration
 - [x] Initial project documentation
+- [x] Dedicated REST API project and environment configuration
+- [x] Reusable API client, typed response models and layered assertions
+- [x] Product catalogue, detail, related product and search API coverage
+- [x] Cross-endpoint data consistency validation
+- [x] Expected failure handling and defect traceability
 
 ### Planned
 
-- [ ] Product API test coverage
 - [ ] Authentication API test coverage
+- [ ] Payment API test coverage
 - [ ] Combined UI and API test scenarios
 - [ ] Database validation using MariaDB
 - [ ] Shopping cart functionality tests
@@ -646,6 +777,7 @@ The framework is under active development.
 - [ ] Reusable fixtures and test data management
 - [ ] Framework refinement and reusable components
 - [ ] Enhanced reporting and failure diagnostics
+- [ ] Accessibility and performance testing exploration
 
 The roadmap prioritises meaningful test coverage and maintainability over test volume.
 
